@@ -56,7 +56,7 @@ def read_and_process_dataset(filepath):
 		df['active_choice'] = df.first_choice
 		df['active_rank'] = 1
 		df['active_rank'] = df.active_rank.astype('category')
-	except File Not Found:
+	except FileNotFoundError:
 		print("No file found at", filepath + "!")
 
 	return df
