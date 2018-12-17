@@ -47,16 +47,27 @@ def read_and_process_dataset(filepath):
 					  'Rep. to Congress 1st Choice District 2': 'first_choice',
 					  'Rep. to Congress 2nd Choice District 2': 'second_choice',
 					  'Rep. to Congress 3rd Choice District 2': 'third_choice',
-					  'Rep. to Congress 1st Choice District 2': 'fourth_choice',
-					  'Rep. to Congress 4th Choice District 2': 'fifth_choice',
+					  'Rep. to Congress 4th Choice District 2': 'fourth_choice',
+					  'Rep. to Congress 5th Choice District 2': 'fifth_choice',
 					 }
 		df = pd.read_excel(filepath, index_col="Cast Vote Record",
-						   dtypes=col_types, names=col_names)
-		df.rename(col_names)
-		df['active_choice'] = df.first_choice
-		df['active_rank'] = 1
-		df['active_rank'] = df.active_rank.astype('category')
+						   dtypes=col_types)
+		df.rename(col_names, axis=1, inplace=True)
+
 	except FileNotFoundError:
 		print("No file found at", filepath + "!")
 
 	return df
+
+def process_overvotes(ballot):
+	'''
+	Eliminates the overvoted ranking and all subsequent rankings in accordance
+	with Maine election law athttps://www.maine.gov/sos/cec/elec/upcoming/pdf/250c535-2018-230-complete.pdf
+	Section 4.2.B.i.
+
+	Inputs:
+		ballot (Pandas series): one ballot from the election
+
+	Returns: Pandas series
+	'''
+	#To be implemented
