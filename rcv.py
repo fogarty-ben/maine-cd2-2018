@@ -27,46 +27,42 @@ def compute_election_results():
 	Computes the results of the election
 	'''
 
-def read_and_process_dataset(filepath):
+
+def move_forward_one_choice(ballot, ind):
 	'''
-	Read in a dataset from file and process it.
+	Moves all the choices at or after index ind forward by one ranking.
 
 	Inputs:
-		filepath (string): the relative location of the file
+		ballot (Pandas series): one ballot from the election
+		ind (int): the index to start the process at
 
-	Returns: pandas dataframe
+	Returns: Pandas series
 	'''
-	try:
-		col_types = {'Cast Vote Record': int,
-					 'Precinct': 'category',
-					 'Ballot Style': 'category',
-					 'Rep. to Congress 1st Choice District 2': 'category',
-					 'Rep. to Congress 2nd Choice District 2': 'category',
-					 'Rep. to Congress 3rd Choice District 2': 'category',
-					 'Rep. to Congress 4th Choice District 2': 'category',
-					 'Rep. to Congress 5th Choice District 2': 'category',
-					 }
-		col_names =  {'cast_vote_record': 'vote_id',
-					  'Precinct': 'precinct',
-					  'Ballot Style': 'ballot_style',
-					  'Rep. to Congress 1st Choice District 2': 'first_choice',
-					  'Rep. to Congress 2nd Choice District 2': 'second_choice',
-					  'Rep. to Congress 3rd Choice District 2': 'third_choice',
-					  'Rep. to Congress 4th Choice District 2': 'fourth_choice',
-					  'Rep. to Congress 5th Choice District 2': 'fifth_choice',
-					 }
-		df = pd.read_excel(filepath, index_col="Cast Vote Record",
-						   dtypes=col_types)
-		df.rename(col_names, axis=1, inplace=True)
-		df = df.apply(process_overvotes, axis=1)
+	ballot[CHOICE_FIELDS[ind] : CHOICE_FIELDS[-2]] = \
+		ballot[CHOICE_FIELDS[ind + 1] : CHOICE_FIELDS[-1]]
+	ballot[CHOICE_FIELDS[-1]] = float('nan')
 
-	except FileNotFoundError:
-		print("No file found at", filepath + "!")
-
-	return df
+	return ballot
 
 
-def process_overvotes(ballot):
+def exhaust_beyond(ballot, ind):
+	'''
+	Replaces all choices at or after index ind with NaN, representing that the
+	ballot is exhausted at these choices
+
+	Inputs:
+		ballot (Pandas series): one ballot from the election
+		ind (int): the index to start the process at
+
+	Returns: Pandas series
+	'''
+	ballot[CHOICE_FIELDS[ind] : CHOICE_FIELDS[-1]] = float('nan')
+
+	return ballot
+
+
+
+def process_ballot(ballot):
 	'''
 	Handles overvotes, undervotes, and duplicate rankings for a single candidate
 	in accordance with Maine election law in Section 4.2.B.
@@ -101,35 +97,41 @@ def process_overvotes(ballot):
 
 	return ballot
 
-def move_forward_one_choice(ballot, ind):
+
+def read_and_process_dataset(filepath):
 	'''
-	Moves all the choices at or after index ind forward by one ranking.
+	Read in a dataset from file and process it.
 
 	Inputs:
-		ballot (Pandas series): one ballot from the election
-		ind (int): the index to start the process at
+		filepath (string): the relative location of the file
 
-	Returns: Pandas series
+	Returns: pandas dataframe
 	'''
-	ballot[CHOICE_FIELDS[ind] : CHOICE_FIELDS[-2]] = \
-		ballot[CHOICE_FIELDS[ind + 1] : CHOICE_FIELDS[-1]]
-	ballot[CHOICE_FIELDS[-1]] = float('nan')
+	col_types = {'Cast Vote Record': int,
+				 'Precinct': 'category',
+				 'Ballot Style': 'category',
+				 'Rep. to Congress 1st Choice District 2': 'category',
+				 'Rep. to Congress 2nd Choice District 2': 'category',
+				 'Rep. to Congress 3rd Choice District 2': 'category',
+				 'Rep. to Congress 4th Choice District 2': 'category',
+				 'Rep. to Congress 5th Choice District 2': 'category',
+				 }
+	col_names =  {'cast_vote_record': 'vote_id',
+				  'Precinct': 'precinct',
+				  'Ballot Style': 'ballot_style',
+				  'Rep. to Congress 1st Choice District 2': 'first_choice',
+				  'Rep. to Congress 2nd Choice District 2': 'second_choice',
+				  'Rep. to Congress 3rd Choice District 2': 'third_choice',
+				  'Rep. to Congress 4th Choice District 2': 'fourth_choice',
+				  'Rep. to Congress 5th Choice District 2': 'fifth_choice',
+				 }
 
-	return ballot
+	try:
+		df = pd.read_excel(filepath, index_col="Cast Vote Record",
+						   dtypes=col_types)
+		df.rename(col_names, axis=1, inplace=True)
+		df = df.apply(process_ballot, axis=1)
+	except FileNotFoundError:
+		print("No file found at", filepath + "!")
 
-
-def exhaust_beyond(ballot, ind):
-	'''
-	Replaces all choices at or after index ind with NaN, representing that the
-	ballot is exhausted at these choices
-
-	Inputs:
-		ballot (Pandas series): one ballot from the election
-		ind (int): the index to start the process at
-
-	Returns: Pandas series
-	'''
-	ballot[CHOICE_FIELDS[ind] : CHOICE_FIELDS[-1]] = float('nan')
-
-	return ballot
-
+	return df
