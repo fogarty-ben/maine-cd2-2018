@@ -10,6 +10,8 @@ https://www.maine.gov/sos/cec/elec/upcoming/pdf/250c535-2018-230-complete.pdf
 import pandas as pd
 
 #data files downloaded from the maine sos website
+NAN = float('nan')
+EXHAUSTED = 'exhausted'
 DATA_FILE_LOCS = {'digital1': 'data/NOV18CVRExportFINAL1.xlsx',
                   'digital2': 'data/NOV18CVRExportFINAL2.xlsx',
                   'digital3': 'data/NOV18CVRExportFINAL3.xlsx',
@@ -25,7 +27,7 @@ NEXT_CHOICE = {'first_choice': 'second_choice',
                'second_choice': 'third_choice',
                'third_choice': 'fourth_choice',
                'fourth_choice': 'fifth_choice',
-               'fifth_choice': 'EXHAUSTED'}
+               'fifth_choice': EXHAUSTED}
 
 def compute_election_results():
     '''
@@ -45,7 +47,7 @@ def move_forward_one_choice(ballot, ind):
     '''
     ballot[CHOICE_FIELDS[ind] : CHOICE_FIELDS[-2]] = \
         ballot[CHOICE_FIELDS[ind + 1] : CHOICE_FIELDS[-1]]
-    ballot[CHOICE_FIELDS[-1]] = float('nan')
+    ballot[CHOICE_FIELDS[-1]] = NAN
 
     return ballot
 
@@ -61,7 +63,7 @@ def exhaust_beyond(ballot, ind):
 
     Returns: Pandas series
     '''
-    ballot[CHOICE_FIELDS[ind] : CHOICE_FIELDS[-1]] = float('nan')
+    ballot[CHOICE_FIELDS[ind] : CHOICE_FIELDS[-1]] = NAN
 
     return ballot
 
@@ -77,24 +79,28 @@ def process_ballot(ballot):
 
     Returns: Pandas series
     '''
-    candidates_voted_for = set()
+    #process overvotes
     for i, col in enumerate(CHOICE_FIELDS):
         #process overvotes
         if ballot[col] == 'overvote':
             ballot = exhaust_beyond(ballot, i)
             break
-        #process undervotes
-        elif ballot[col] == 'undervote':
+    
+    #process undervotes and duplicate rankings
+    candidates_voted_for = set()
+    for i, col in enumerate(CHOICE_FIELDS):
+        #undervotes
+        if ballot[col] == 'undervote':
             if i == len(CHOICE_FIELDS) - 1 or \
             ballot[CHOICE_FIELDS[i + 1]] == 'undervote':
                 ballot = exhaust_beyond(ballot, i)
                 break
             else:
                 ballot = move_forward_one_choice(ballot, i)
-        #process duplicate rankings
+        #duplicate rankings
         if ballot[col] in candidates_voted_for:
             if i == len(CHOICE_FIELDS) - 1:
-                ballot[CHOICE_FIELDS[i]] = float('nan')
+                ballot[CHOICE_FIELDS[i]] = NAN
             else:
                 ballot = move_forward_one_choice(ballot, i)
         else:
@@ -103,7 +109,7 @@ def process_ballot(ballot):
     return ballot
 
 
-def read_and_process_dataset(filepath):
+def read_and_process_ballots(filepath):
     '''
     Read in a dataset from file and process it.
 
@@ -130,14 +136,65 @@ def read_and_process_dataset(filepath):
                  'Rep. to Congress 4th Choice District 2': 'fourth_choice',
                  'Rep. to Congress 5th Choice District 2': 'fifth_choice',
                 }
+    fix_entries = {'REP Poliquin, Bruce (5931)': 'REP Poliquin, Bruce',
+                   'DEM Golden, Jared F. (5471)': 'DEM Golden, Jared F.'}
 
     try:
         dataframe = pd.read_excel(filepath, index_col="Cast Vote Record",
                                   dtypes=col_types)
         dataframe.rename(col_names, axis=1, inplace=True)
+        dataframe['first_choice'] = dataframe.first_choice.replace(fix_entries)
         dataframe = dataframe.apply(process_ballot, axis=1)
         dataframe['active_choice'] = 'first_choice'
+        dataframe[dataframe.first_choice == NAN] = EXHAUSTED
     except FileNotFoundError:
         print("No file found at", filepath + "!")
 
     return dataframe
+
+
+def get_active_choice(ballots):
+    '''
+    Returns which candidate each ballot is active for.
+
+    Inputs:
+        ballots (Pandas dataframe): all the ballots in the election
+
+    Returns: Panda series
+    '''
+    active_ballots = ballots[ballots.active_choice != EXHAUSTED]
+    print(active_ballots.head())
+    return active_ballots.apply(lambda x: x[x.active_choice], axis=1)
+
+
+def tabulate_one_round(ballots):
+    '''
+    Calculate the vote totals for all candidates in one round finds eliminate
+    and candidates below the threshold.
+
+    Inputs:
+        ballots (Pandas dataframe): all the ballots in the election
+
+    Returns: tuple of Pandas series, string where the series is the results of
+        the round and the string is the candidate to be eliminated
+    '''
+    vote_tally = get_active_choice(ballots) \
+                 .value_counts() \
+                 .transform(lambda x: x / sum(x) * 100)
+    eliminated_candidate = vote_tally.index[-1]
+    
+    return (vote_tally, eliminated_candidate)
+
+def advance_round(ballots, active_candidates):
+    '''
+    Updates active choice on ballots after a candidate is eliminated
+
+    Inputs:
+        ballots (Pandas dataframe): all the ballots in the election
+        active_candidates (set): uneliminated candidates
+    '''
+    to_update = ~ get_active_choice(ballots).isin(active_candidates)
+    ballots.loc[to_update, 'active_choice'] = ballots[to_update].active_choice.replace(
+        NEXT_CHOICE)
+    return ballots
+
