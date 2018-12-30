@@ -12,6 +12,9 @@ import pandas as pd
 #data files downloaded from the maine sos website
 NAN = float('nan')
 EXHAUSTED = 'exhausted'
+OVERVOTE = 'overvote'
+UNDERVOTE = 'undervote'
+SKIP = 'skip'
 DATA_FILE_LOCS = {'digital1': 'data/NOV18CVRExportFINAL1.xlsx',
                   'digital2': 'data/NOV18CVRExportFINAL2.xlsx',
                   'digital3': 'data/NOV18CVRExportFINAL3.xlsx',
@@ -80,31 +83,31 @@ def process_ballot(ballot):
     Returns: Pandas series
     '''
     #process overvotes
-    for i, col in enumerate(CHOICE_FIELDS):
-        #process overvotes
-        if ballot[col] == 'overvote':
-            ballot = exhaust_beyond(ballot, i)
-            break
-    
-    #process undervotes and duplicate rankings
     candidates_voted_for = set()
     for i, col in enumerate(CHOICE_FIELDS):
-        #undervotes
-        if ballot[col] == 'undervote':
+        #process overvotes
+        if ballot[col] == OVERVOTE:
+            ballot = exhaust_beyond(ballot, i)
+            break
+        #process duplicate rankings
+        elif ballot[col] in candidates_voted_for:
+                ballot[col] = SKIP
+        #process undervotes
+        elif ballot[col] == UNDERVOTE:
             if i == len(CHOICE_FIELDS) - 1 or \
-            ballot[CHOICE_FIELDS[i + 1]] == 'undervote':
+            ballot[CHOICE_FIELDS[i + 1]] == UNDERVOTE:
                 ballot = exhaust_beyond(ballot, i)
-                break
             else:
-                ballot = move_forward_one_choice(ballot, i)
-        #duplicate rankings
-        if ballot[col] in candidates_voted_for:
+                ballot[col] = SKIP
+        candidates_voted_for.add(ballot[col])
+    #remove skips
+    for i in range(len(CHOICE_FIELDS) - 1, -1, -1):
+        col = CHOICE_FIELDS[i]
+        if ballot[col] == SKIP:
             if i == len(CHOICE_FIELDS) - 1:
-                ballot[CHOICE_FIELDS[i]] = NAN
+                ballot[col] = NAN
             else:
                 ballot = move_forward_one_choice(ballot, i)
-        else:
-            candidates_voted_for.add(ballot[col])
 
     return ballot
 
@@ -141,7 +144,7 @@ def read_and_process_ballots(filepath):
 
     try:
         dataframe = pd.read_excel(filepath, index_col="Cast Vote Record",
-                                  dtypes=col_types)
+                                  dtype=col_types)
         dataframe.rename(col_names, axis=1, inplace=True)
         dataframe['first_choice'] = dataframe.first_choice.replace(fix_entries)
         dataframe = dataframe.apply(process_ballot, axis=1)
@@ -163,7 +166,6 @@ def get_active_choice(ballots):
     Returns: Panda series
     '''
     active_ballots = ballots[ballots.active_choice != EXHAUSTED]
-    print(active_ballots.head())
     return active_ballots.apply(lambda x: x[x.active_choice], axis=1)
 
 
