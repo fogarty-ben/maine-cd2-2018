@@ -17,7 +17,11 @@ def import_one_ballotset(dataset_name='digital1'):
 
     Returns: Pandas DataFrame
     '''
+    if dataset_name in rcv.DATA_FILE_LOCS:
+        file_loc = rcv.DATA_FILE_LOCS[dataset_name]
+    else:
+        file_loc = 'data/' + dataset_name
 
-    return rcv.read_and_process_ballots(rcv.DATA_FILE_LOCS[dataset_name])
+    return rcv.read_and_process_ballots(file_loc)
 
     
