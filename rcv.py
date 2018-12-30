@@ -195,8 +195,15 @@ def advance_round(ballots, active_candidates):
         ballots (Pandas dataframe): all the ballots in the election
         active_candidates (set): uneliminated candidates
     '''
-    to_update = ~ get_active_choice(ballots).isin(active_candidates)
-    ballots.loc[to_update, 'active_choice'] = ballots[to_update].active_choice.replace(
-        NEXT_CHOICE)
+    continue_updating = True
+    while continue_updating:
+        to_update = ~ get_active_choice(ballots).isin(active_candidates)
+        ballots.loc[to_update, 'active_choice'] = ballots[to_update].\
+            active_choice.map(NEXT_CHOICE)
+        tally = get_active_choice(ballots)
+        candidates_with_votes = set(tally)
+        if len(candidates_with_votes - active_candidates)  == 0:
+            continue_updating = False
+
     return ballots
 
