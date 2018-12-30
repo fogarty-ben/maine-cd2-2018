@@ -13,7 +13,7 @@ def import_one_ballotset(dataset_name='digital1'):
     Imports one set of ballots.
 
     Inputs:
-        dataset_name (string): name of the dataset to be imported
+        dataset_name (string): name or path of the dataset to be imported
 
     Returns: Pandas DataFrame
     '''
