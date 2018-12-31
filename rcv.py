@@ -39,7 +39,7 @@ def compute_election_results(seed=11012017):
     '''
     Computes the results of the election
     '''
-    
+    '''
     random.seed(seed)
     ballots = pd.DataFrame()
     n_files = len(DATA_FILE_LOCS)
@@ -50,8 +50,8 @@ def compute_election_results(seed=11012017):
         current_file += 1
     print('All ballots loaded!')
     print()
-    
-    #ballots = read_and_process_ballots('data/mini.csv')
+    '''
+    ballots = read_and_process_ballots('data/tie_testing3.csv')
 
     active_candidates = set(ballots.first_choice.values)
 
@@ -64,6 +64,14 @@ def compute_election_results(seed=11012017):
         if results.iloc[0]['% Votes'] > 50:
             print("{} was elected in round {}.".format(results.index[0],
                                                        n_rounds))
+            print(results)
+            found_winner = True
+        elif results.iloc[0]['% Votes'] == 50 and len(results) == 2:
+            winner = random.sample(results.index.tolist(), 1)[0]
+            print(results.index.tolist(), "were tied at 50% with no other",
+                "candidates to eliminate.")
+            print("{} was elected in round {} through random tie-breaking."\
+                .format(winner,n_rounds))
             print(results)
             found_winner = True
         else:
