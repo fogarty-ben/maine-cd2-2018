@@ -11,8 +11,8 @@ Current status: Produces correct results
 
 
 
-To-do: implement tie-breaker (not necessary for this specific election but good practice); check documentation; code review
+To-do: implement tie-breaker (not necessary for this specific election but good practice); sorted series; check documentation; code review
 
 
 
-Ideas for future implementation: downloading this data and converting to csv with a script; showing transfer of votes between candidates
+Ideas for future implementation: downloading this data and converting to csv with a script; showing transfer of votes between candidates; track exhausted and/or invalid votes
