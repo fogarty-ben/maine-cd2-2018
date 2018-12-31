@@ -6,4 +6,14 @@ from the 2018 election in Maine's Second Congressional District and recreate
 the ranked choice voting algorithm used to declare Jared Golden the Congressman-Elect.
 
 Data acquired from: https://www.maine.gov/sos/cec/elec/results/results18.html#Nov6
-(Idea for future implementation: downloading this data)
+
+Current status: Produces correct results
+
+To-do:
+-Implement tie-breaker (not necessary for this specific election but good practice)
+-Check documentation
+-Code review
+
+Ideas for future implementation:
+-downloading this data and converting to csv with a script
+-showing transfer of votes between candidates
