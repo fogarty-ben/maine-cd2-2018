@@ -15,14 +15,14 @@ EXHAUSTED = 'exhausted'
 OVERVOTE = 'overvote'
 UNDERVOTE = 'undervote'
 SKIP = 'skip'
-DATA_FILE_LOCS = {'digital1': 'data/NOV18CVRExportFINAL1.xlsx',
-                  'digital2': 'data/NOV18CVRExportFINAL2.xlsx',
-                  'digital3': 'data/NOV18CVRExportFINAL3.xlsx',
-                  'uocava4': 'data/UOCAVA-FINALRepCD2.xlsx',
-                  'uocava5': 'data/UOCAVA-AUX-CVRRepCD2.xlsx',
-                  'uocava6': 'data/UOCAVA2CVRRepCD2.xlsx',
-                  'noscan7': 'data/AUXCVRProofedCVR95RepCD2.xlsx',
-                  'digital8': 'data/RepCD2-8final.xlsx'
+DATA_FILE_LOCS = {'digital1': 'data/NOV18CVRExportFINAL1.csv',
+                  'digital2': 'data/NOV18CVRExportFINAL2.csv',
+                  'digital3': 'data/NOV18CVRExportFINAL3.csv',
+                  'uocava4': 'data/UOCAVA-FINALRepCD2.csv',
+                  'uocava5': 'data/UOCAVA-AUX-CVRRepCD2.csv',
+                  'uocava6': 'data/UOCAVA2CVRRepCD2.csv',
+                  'noscan7': 'data/AUXCVRProofedCVR95RepCD2.csv',
+                  'digital8': 'data/RepCD2-8final.csv'
                  }
 CHOICE_FIELDS = ['first_choice', 'second_choice', 'third_choice',
                  'fourth_choice', 'fifth_choice']
@@ -33,11 +33,43 @@ NEXT_CHOICE = {'first_choice': 'second_choice',
                'fifth_choice': EXHAUSTED,
                EXHAUSTED: EXHAUSTED}
 
+
 def compute_election_results():
     '''
     Computes the results of the election
     '''
+    ballots = pd.DataFrame()
+    n_files = len(DATA_FILE_LOCS)
+    current_file = 1
+    for path in DATA_FILE_LOCS.values():
+        print('Loading ballots file {}/{}!'.format(current_file, n_files))
+        ballots = ballots.append(read_and_process_ballots(path))
+        current_file += 1
+    print('All ballots loaded!')
+    print()
 
+    active_candidates = set(['REP Poliquin, Bruce', 'DEM Golden, Jared F.', 
+        'Hoar, William R.S.', 'Bond, Tiffany L.'])
+
+    found_winner = False
+    n_rounds = 0
+    while not found_winner:
+        n_rounds += 1
+        print("Round #{}:".format(n_rounds))
+        results, to_eliminate = tabulate_one_round(ballots)
+        if results.iloc[0]['% Votes'] > 50:
+            print("{} was elected in round {}.".format(results.index[0],
+                                                       n_rounds))
+            print(results)
+            found_winner = True
+        else:
+            print('{} was eliminated in round {}.'.format(to_eliminate,
+                n_rounds))
+            print(results)
+            print()
+            active_candidates.remove(to_eliminate)
+            advance_round(ballots, active_candidates)
+            
 
 def move_forward_one_choice(ballot, ind):
     '''
@@ -129,7 +161,7 @@ def read_and_process_ballots(filepath):
                  'Rep. to Congress 2nd Choice District 2': 'category',
                  'Rep. to Congress 3rd Choice District 2': 'category',
                  'Rep. to Congress 4th Choice District 2': 'category',
-                 'Rep. to Congress 5th Choice District 2': 'category',
+                 'Rep. to Congress 5th Choice District 2': 'category'
                  }
     col_names = {'cast_vote_record': 'vote_id',
                  'Precinct': 'precinct',
@@ -139,15 +171,22 @@ def read_and_process_ballots(filepath):
                  'Rep. to Congress 3rd Choice District 2': 'third_choice',
                  'Rep. to Congress 4th Choice District 2': 'fourth_choice',
                  'Rep. to Congress 5th Choice District 2': 'fifth_choice',
+                 'Rep. to Congress District 2 1st Choice': 'first_choice',
+                 'Rep. to Congress District 2 2nd Choice': 'second_choice',
+                 'Rep. to Congress District 2 3rd Choice': 'third_choice',
+                 'Rep. to Congress District 2 4th Choice': 'fourth_choice',
+                 'Rep. to Congress District 2 5th Choice': 'fifth_choice',
                 }
     fix_entries = {'REP Poliquin, Bruce (5931)': 'REP Poliquin, Bruce',
-                   'DEM Golden, Jared F. (5471)': 'DEM Golden, Jared F.'}
+                   'DEM Golden, Jared F. (5471)': 'DEM Golden, Jared F.',
+                   'DEM Golden, Jared F. ': 'DEM Golden, Jared F.'}
 
     try:
-        dataframe = pd.read_excel(filepath, index_col="Cast Vote Record",
+        dataframe = pd.read_csv(filepath, index_col="Cast Vote Record",
                                   dtype=col_types)
         dataframe.rename(col_names, axis=1, inplace=True)
-        dataframe['first_choice'] = dataframe.first_choice.replace(fix_entries)
+        for choice in CHOICE_FIELDS:
+            dataframe[choice] = dataframe[choice].replace(fix_entries)
         dataframe = dataframe.apply(process_ballot, axis=1)
         dataframe['active_choice'] = 'first_choice'
         dataframe[dataframe.first_choice == NAN] = EXHAUSTED
@@ -180,16 +219,39 @@ def tabulate_one_round(ballots):
     Inputs:
         ballots (Pandas dataframe): all the ballots in the election
 
-    Returns: tuple of Pandas series, string where the series is the results of
-        the round and the string is the candidate to be eliminated
+    Returns: tuple of Pandas series, Panda series string where the series is the
+        results of the round and the string is the candidate to be eliminated
     '''
-    ballots = ballots.apply(get_active_choice, axis=1)
-    vote_tally = ballots.apply(get_active_choice, axis=1) \
-                        .value_counts() \
-                        .transform(lambda x: x / sum(x) * 100)
-    eliminated_candidate = vote_tally.index[-1]
+    active_choices = ballots.apply(get_active_choice, axis=1)
+    vote_cts = active_choices.value_counts()
+    vote_pcts = active_choices[active_choices != NAN]\
+                .value_counts()\
+                .transform(lambda x: x / sum(x) * 100)
+    results = pd.concat([vote_cts, vote_pcts], axis=1)\
+                .rename(mapper={0: '# Votes', 1: "% Votes"}, axis=1)
+    eliminated_candidate = vote_pcts.index[-1]
     
-    return (vote_tally, eliminated_candidate)
+    return (results, eliminated_candidate)
+
+
+def find_high_valid_choice(ballot, active_candidates):
+    '''
+    Finds the highest on a ballot containing a still active candidate. To be
+    used recursively.
+
+    Inputs:
+        ballot (Pandas series): one ballot from the election
+        active_candidates (set): uneliminated candidates
+    
+    Returns: Pandas series
+    '''
+    ballot['active_choice'] = NEXT_CHOICE[ballot.active_choice]
+    if ballot.active_choice == EXHAUSTED or \
+    ballot[ballot.active_choice] in active_candidates:
+        return ballot    
+
+    return find_high_valid_choice(ballot, active_candidates)
+
 
 def advance_round(ballots, active_candidates):
     '''
@@ -199,16 +261,10 @@ def advance_round(ballots, active_candidates):
         ballots (Pandas dataframe): all the ballots in the election
         active_candidates (set): uneliminated candidates
     '''
-    continue_updating = True
-    while continue_updating:
-        to_update = ~ ballots.apply(get_active_choice, axis=1) \
-                             .isin(active_candidates)
-        print(to_update)
-        ballots.loc[to_update, 'active_choice'] = ballots[to_update].\
-            active_choice.map(NEXT_CHOICE)
-        tally = set(ballots.apply(get_active_choice, axis=1))
-        if len(tally - (active_candidates | set([NAN])))  == 0:
-            continue_updating = False
+    to_update = ~ ballots.apply(get_active_choice, axis=1) \
+                         .isin(active_candidates)
+    ballots.loc[to_update] = ballots[to_update].apply(find_high_valid_choice,
+        axis=1, args=(active_candidates,))
 
     return ballots
 
