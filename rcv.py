@@ -30,7 +30,8 @@ NEXT_CHOICE = {'first_choice': 'second_choice',
                'second_choice': 'third_choice',
                'third_choice': 'fourth_choice',
                'fourth_choice': 'fifth_choice',
-               'fifth_choice': EXHAUSTED}
+               'fifth_choice': EXHAUSTED,
+               EXHAUSTED: EXHAUSTED}
 
 def compute_election_results():
     '''
@@ -156,17 +157,19 @@ def read_and_process_ballots(filepath):
     return dataframe
 
 
-def get_active_choice(ballots):
+def get_active_choice(ballot):
     '''
     Returns which candidate each ballot is active for.
 
     Inputs:
-        ballots (Pandas dataframe): all the ballots in the election
+        ballot (Pandas series): one ballot from the election
 
     Returns: Panda series
     '''
-    active_ballots = ballots[ballots.active_choice != EXHAUSTED]
-    return active_ballots.apply(lambda x: x[x.active_choice], axis=1)
+    if ballot.active_choice == EXHAUSTED:
+        return NAN
+    else:
+        return ballot[ballot.active_choice]
 
 
 def tabulate_one_round(ballots):
@@ -180,9 +183,10 @@ def tabulate_one_round(ballots):
     Returns: tuple of Pandas series, string where the series is the results of
         the round and the string is the candidate to be eliminated
     '''
-    vote_tally = get_active_choice(ballots) \
-                 .value_counts() \
-                 .transform(lambda x: x / sum(x) * 100)
+    ballots = ballots.apply(get_active_choice, axis=1)
+    vote_tally = ballots.apply(get_active_choice, axis=1) \
+                        .value_counts() \
+                        .transform(lambda x: x / sum(x) * 100)
     eliminated_candidate = vote_tally.index[-1]
     
     return (vote_tally, eliminated_candidate)
@@ -197,12 +201,13 @@ def advance_round(ballots, active_candidates):
     '''
     continue_updating = True
     while continue_updating:
-        to_update = ~ get_active_choice(ballots).isin(active_candidates)
+        to_update = ~ ballots.apply(get_active_choice, axis=1) \
+                             .isin(active_candidates)
+        print(to_update)
         ballots.loc[to_update, 'active_choice'] = ballots[to_update].\
             active_choice.map(NEXT_CHOICE)
-        tally = get_active_choice(ballots)
-        candidates_with_votes = set(tally)
-        if len(candidates_with_votes - active_candidates)  == 0:
+        tally = set(ballots.apply(get_active_choice, axis=1))
+        if len(tally - (active_candidates | set([NAN])))  == 0:
             continue_updating = False
 
     return ballots
