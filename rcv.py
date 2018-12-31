@@ -8,6 +8,7 @@ https://www.maine.gov/sos/cec/elec/upcoming/pdf/250c535-2018-230-complete.pdf
 '''
 
 import pandas as pd
+import random
 
 #data files downloaded from the maine sos website
 NAN = float('nan')
@@ -34,10 +35,12 @@ NEXT_CHOICE = {'first_choice': 'second_choice',
                EXHAUSTED: EXHAUSTED}
 
 
-def compute_election_results():
+def compute_election_results(seed=11012017):
     '''
     Computes the results of the election
     '''
+    
+    random.seed(seed)
     ballots = pd.DataFrame()
     n_files = len(DATA_FILE_LOCS)
     current_file = 1
@@ -47,22 +50,24 @@ def compute_election_results():
         current_file += 1
     print('All ballots loaded!')
     print()
+    
+    #ballots = read_and_process_ballots('data/mini.csv')
 
-    active_candidates = set(['REP Poliquin, Bruce', 'DEM Golden, Jared F.', 
-        'Hoar, William R.S.', 'Bond, Tiffany L.'])
+    active_candidates = set(ballots.first_choice.values)
 
     found_winner = False
     n_rounds = 0
     while not found_winner:
         n_rounds += 1
         print("Round #{}:".format(n_rounds))
-        results, to_eliminate = tabulate_one_round(ballots)
+        results = tabulate_one_round(ballots)
         if results.iloc[0]['% Votes'] > 50:
             print("{} was elected in round {}.".format(results.index[0],
                                                        n_rounds))
             print(results)
             found_winner = True
         else:
+            to_eliminate = find_candidate_to_eliminate(results)
             print('{} was eliminated in round {}.'.format(to_eliminate,
                 n_rounds))
             print(results)
@@ -228,10 +233,31 @@ def tabulate_one_round(ballots):
                 .value_counts()\
                 .transform(lambda x: x / sum(x) * 100)
     results = pd.concat([vote_cts, vote_pcts], axis=1)\
-                .rename(mapper={0: '# Votes', 1: "% Votes"}, axis=1)
-    eliminated_candidate = vote_pcts.index[-1]
+                .rename(mapper={0: '# Votes', 1: "% Votes"}, axis=1)\
+                .sort_values(by="# Votes", ascending=False, axis=0)
     
-    return (results, eliminated_candidate)
+    return results
+
+
+def find_candidate_to_eliminate(results):
+    '''
+    Finds the candidate(s) with the lowest vote total after a round. If two or
+    more candidate are tied for the lowest vote total, then a candidate to
+    eliminate is chosen randomly.
+
+    Inputs:
+        resuts(Pandas dataframe): the results of one round in the election
+
+    Returns: string, the name of the candidate to be eliminated
+    '''
+    min_votes = results.iloc[-1]['# Votes']
+    min_candidates = results[results['# Votes'] == min_votes].index.tolist()
+
+    eliminated_candidate = random.sample(min_candidates, 1)[0]
+    if len(min_candidates) > 1:
+        print(min_candidates, "all tied for lowest vote total in this round.")
+
+    return eliminated_candidate
 
 
 def find_high_valid_choice(ballot, active_candidates):
