@@ -7,8 +7,10 @@ All references to Maine election law from:
 https://www.maine.gov/sos/cec/elec/upcoming/pdf/250c535-2018-230-complete.pdf
 '''
 
+import sys
 import pandas as pd
 import random
+
 
 #data files downloaded from the maine sos website
 NAN = float('nan')
@@ -35,12 +37,17 @@ NEXT_CHOICE = {'first_choice': 'second_choice',
                EXHAUSTED: EXHAUSTED}
 
 
-def compute_election_results(seed=11012017):
+def compute_election_results(seed=None):
     '''
     Computes the results of the election
+
+    Inputs:
+    seed (int): a random seed; randomization will be used in the case
+        of a tie. This parameter is included to make results reproducable.
     '''
-    '''
-    random.seed(seed)
+    if seed:
+        random.seed(seed)
+
     ballots = pd.DataFrame()
     n_files = len(DATA_FILE_LOCS)
     current_file = 1
@@ -50,10 +57,14 @@ def compute_election_results(seed=11012017):
         current_file += 1
     print('All ballots loaded!')
     print()
-    '''
-    ballots = read_and_process_ballots('data/tie_testing3.csv')
 
-    active_candidates = set(ballots.first_choice.values)
+    active_candidates = set(ballots.first_choice.value_counts().index)
+    print('The following candidates recieved votes in the first round and are', 
+          'eligible for election:')
+    for candidate in active_candidates:
+        print(candidate)
+    print('All other candidates will be automatically eliminated.')
+    print()
 
     found_winner = False
     n_rounds = 0
@@ -302,3 +313,10 @@ def advance_round(ballots, active_candidates):
 
     return ballots
 
+if __name__ == "__main__":
+    usage = "python3 rcv.py (optional random seed integer)"
+    assert (len(sys.argv) <= 2), "Expected 0 or 1 arguments, recieved {}.".format(len(sys.argv) - 1)
+    if sys.argv == 2:
+        compute_election_results(sys.argv[1])
+    else:
+        compute_election_results()
