@@ -12,11 +12,13 @@ This project requires the pandas library and was developed using version 0.23.4.
 
 ### First things first
 
-Before running the program, you first need to download the data files by running the get_files.sh shell script at the terminal.
+Before running the program, you first need to download and extract the data files. For Mac users, this can be accomplished by running get_files.sh at the terminal.
 
 ```
 sh get_files.sh
 ```
+
+For Windows or Linux users, the file can be downloaded from https://www.ben-fogarty.com/projects/maine-cd2-2018/maine-cd2-2018-ballots.tar.gz. After downloading the file, users must extract the archive into the same directory as the project.
 
 This will download and unpack an archive with eight CSV files of ballots from the 2018 Maine CD2 election. This files were originally downloaded from https://www.maine.gov/sos/cec/elec/results/results18.html#Nov6 on 16 December 2018 and then convereted to CSVs for ease of use in pandas.
 
@@ -48,4 +50,4 @@ Current status: Produces correct results
 
 To-do: check documentation; code review
 
-Ideas for future implementation: downloading data and converting to csv with a script; showing transfer of votes between candidates; tracking exhausted and/or invalid votes; batch elimination
+Ideas for future implementation: showing transfer of votes between candidates; tracking exhausted and/or invalid votes; batch elimination
