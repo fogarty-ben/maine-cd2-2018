@@ -11,10 +11,8 @@ https://www.maine.gov/sos/cec/elec/upcoming/pdf/250c535-2018-230-complete.pdf
 
 import argparse
 import os.path
-import sys
-import pandas as pd
 import random
-
+import pandas as pd
 
 # Constants
 NAN = float('nan')
@@ -38,12 +36,12 @@ DATA_FILE_NAMES = ['NOV18CVRExportFINAL1.xlsx', 'NOV18CVRExportFINAL2.xlsx',
                    'AUXCVRProofedCVR95RepCD2.xlsx', 'RepCD2-8final.xlsx']
 
 
-def compute_election_results(dir, seed=None):
+def compute_election_results(datadir, seed=None):
     '''
     Computes the results of the election
 
     Inputs:
-    dir (str): path to directory containing ballots
+    datadir (str): path to directory containing ballots
     seed (int): a random seed; randomization will be used in the case
         of a tie. This parameter is included to make results reproducable.
     '''
@@ -53,8 +51,8 @@ def compute_election_results(dir, seed=None):
     ballots = pd.DataFrame()
     n_files = len(DATA_FILE_NAMES)
     for filenum, filename in enumerate(DATA_FILE_NAMES):
-        path = os.path.join(dir, filename)
-        print('Loading and processing ballots file {}/{}!'.format(filenum + 1, 
+        path = os.path.join(datadir, filename)
+        print('Loading and processing ballots file {}/{}!'.format(filenum + 1,
                                                                   n_files))
         new_ballots = read_and_process_ballots(path)
         if new_ballots is not None:
@@ -63,7 +61,7 @@ def compute_election_results(dir, seed=None):
     print()
 
     active_candidates = set(ballots.first_choice.value_counts().index)
-    print('The following candidates recieved votes in the first round and are', 
+    print('The following candidates recieved votes in the first round and are',
           'eligible for election:')
     for candidate in active_candidates:
         print(candidate)
@@ -84,20 +82,20 @@ def compute_election_results(dir, seed=None):
         elif results.iloc[0]['% Votes'] == 50 and len(results) == 2:
             winner = random.sample(results.index.tolist(), 1)[0]
             print(results.index.tolist(), "were tied at 50% with no other",
-                "candidates to eliminate.")
+                  "candidates to eliminate.")
             print("{} was elected in round {} through random tie-breaking."\
-                .format(winner,n_rounds))
+                .format(winner, n_rounds))
             print(results)
             found_winner = True
         else:
             to_eliminate = find_candidate_to_eliminate(results)
             print('{} was eliminated in round {}.'.format(to_eliminate,
-                n_rounds))
+                                                          n_rounds))
             print(results)
             print()
             active_candidates.remove(to_eliminate)
             advance_round(ballots, active_candidates)
-            
+
 
 def move_forward_one_choice(ballot, ind):
     '''
@@ -153,7 +151,7 @@ def process_ballot(ballot):
             break
         #process duplicate rankings
         elif ballot[col] in candidates_voted_for:
-                ballot[col] = SKIP
+            ballot[col] = SKIP
         #process undervotes
         elif ballot[col] == UNDERVOTE:
             if i == len(CHOICE_FIELDS) - 1 or \
@@ -237,8 +235,8 @@ def get_active_choice(ballot):
     '''
     if ballot.active_choice == EXHAUSTED:
         return NAN
-    else:
-        return ballot[ballot.active_choice]
+
+    return ballot[ballot.active_choice]
 
 
 def tabulate_one_round(ballots):
@@ -260,7 +258,7 @@ def tabulate_one_round(ballots):
     results = pd.concat([vote_cts, vote_pcts], axis=1)\
                 .rename(mapper={0: '# Votes', 1: "% Votes"}, axis=1)\
                 .sort_values(by="# Votes", ascending=False, axis=0)
-    
+
     return results
 
 
@@ -287,19 +285,19 @@ def find_candidate_to_eliminate(results):
 
 def find_high_valid_choice(ballot, active_candidates):
     '''
-    Finds the highest ranking on a ballot containing a still active candidate. 
+    Finds the highest ranking on a ballot containing a still active candidate.
     To be used recursively.
 
     Inputs:
         ballot (Pandas series): one ballot from the election
         active_candidates (set): uneliminated candidates
-    
+
     Returns: Pandas series
     '''
     ballot['active_choice'] = NEXT_CHOICE[ballot.active_choice]
     if ballot.active_choice == EXHAUSTED or \
        ballot[ballot.active_choice] in active_candidates:
-        return ballot    
+        return ballot
 
     return find_high_valid_choice(ballot, active_candidates)
 
