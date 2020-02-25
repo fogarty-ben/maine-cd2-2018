@@ -54,7 +54,8 @@ def compute_election_results(dir, seed=None):
     n_files = len(DATA_FILE_NAMES)
     for filenum, filename in enumerate(DATA_FILE_NAMES):
         path = os.path.join(dir, filename)
-        print('Loading and processing ballots file {}/{}!'.format(filenum + 1, n_files))
+        print('Loading and processing ballots file {}/{}!'.format(filenum + 1, 
+                                                                  n_files))
         new_ballots = read_and_process_ballots(path)
         if new_ballots is not None:
             ballots = ballots.append(new_ballots)
@@ -100,7 +101,8 @@ def compute_election_results(dir, seed=None):
 
 def move_forward_one_choice(ballot, ind):
     '''
-    Moves all the choices at or after index ind forward by one ranking.
+    Moves all the choices in a ballot at or after index ind forward by one
+    ranking.
 
     Inputs:
         ballot (Pandas series): one ballot from the election
@@ -174,7 +176,7 @@ def process_ballot(ballot):
 
 def read_and_process_ballots(filepath):
     '''
-    Read in a dataset from file and process it.
+    Read in a set of ballots from file and clean/process it.
 
     Inputs:
         filepath (string): the relative location of the file
@@ -285,8 +287,8 @@ def find_candidate_to_eliminate(results):
 
 def find_high_valid_choice(ballot, active_candidates):
     '''
-    Finds the highest on a ballot containing a still active candidate. To be
-    used recursively.
+    Finds the highest ranking on a ballot containing a still active candidate. 
+    To be used recursively.
 
     Inputs:
         ballot (Pandas series): one ballot from the election
@@ -296,7 +298,7 @@ def find_high_valid_choice(ballot, active_candidates):
     '''
     ballot['active_choice'] = NEXT_CHOICE[ballot.active_choice]
     if ballot.active_choice == EXHAUSTED or \
-    ballot[ballot.active_choice] in active_candidates:
+       ballot[ballot.active_choice] in active_candidates:
         return ballot    
 
     return find_high_valid_choice(ballot, active_candidates)
@@ -312,8 +314,9 @@ def advance_round(ballots, active_candidates):
     '''
     to_update = ~ ballots.apply(get_active_choice, axis=1) \
                          .isin(active_candidates)
-    ballots.loc[to_update] = ballots[to_update].apply(find_high_valid_choice,
-        axis=1, args=(active_candidates,))
+    ballots.loc[to_update] = ballots[to_update].\
+                                    apply(find_high_valid_choice, axis=1,
+                                          args=(active_candidates,))
 
     return ballots
 
