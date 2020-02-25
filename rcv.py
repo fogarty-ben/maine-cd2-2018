@@ -9,27 +9,19 @@ All references to Maine election law from:
 https://www.maine.gov/sos/cec/elec/upcoming/pdf/250c535-2018-230-complete.pdf
 '''
 
+import argparse
 import os.path
 import sys
 import pandas as pd
 import random
 
 
-#data files downloaded from the maine sos website
+# Constants
 NAN = float('nan')
 EXHAUSTED = 'exhausted'
 OVERVOTE = 'overvote'
 UNDERVOTE = 'undervote'
 SKIP = 'skip'
-DATA_FILE_LOCS = {'digital1': 'NOV18CVRExportFINAL1.xlsx',
-                  'digital2': 'NOV18CVRExportFINAL2.xlsx',
-                  'digital3': 'NOV18CVRExportFINAL3.xlsx',
-                  'uocava4': 'UOCAVA-FINALRepCD2.xlsx',
-                  'uocava5': 'UOCAVA-AUX-CVRRepCD2.xlsx',
-                  'uocava6': 'UOCAVA2CVRRepCD2.xlsx',
-                  'noscan7': 'AUXCVRProofedCVR95RepCD2.xlsx',
-                  'digital8': 'RepCD2-8final.xlsx'
-                 }
 CHOICE_FIELDS = ['first_choice', 'second_choice', 'third_choice',
                  'fourth_choice', 'fifth_choice']
 NEXT_CHOICE = {'first_choice': 'second_choice',
@@ -38,6 +30,12 @@ NEXT_CHOICE = {'first_choice': 'second_choice',
                'fourth_choice': 'fifth_choice',
                'fifth_choice': EXHAUSTED,
                EXHAUSTED: EXHAUSTED}
+
+# Data file names
+DATA_FILE_NAMES = ['NOV18CVRExportFINAL1.xlsx', 'NOV18CVRExportFINAL2.xlsx',
+                   'NOV18CVRExportFINAL3.xlsx', 'UOCAVA-FINALRepCD2.xlsx',
+                   'UOCAVA-AUX-CVRRepCD2.xlsx', 'UOCAVA2CVRRepCD2.xlsx',
+                   'AUXCVRProofedCVR95RepCD2.xlsx', 'RepCD2-8final.xlsx']
 
 
 def compute_election_results(dir, seed=None):
@@ -53,10 +51,10 @@ def compute_election_results(dir, seed=None):
         random.seed(seed)
 
     ballots = pd.DataFrame()
-    n_files = len(DATA_FILE_LOCS)
-    for filenum, filename in enumerate(DATA_FILE_LOCS.values()):
+    n_files = len(DATA_FILE_NAMES)
+    for filenum, filename in enumerate(DATA_FILE_NAMES):
         path = os.path.join(dir, filename)
-        print('Loading ballots file {}/{}!'.format(filenum + 1, n_files))
+        print('Loading and processing ballots file {}/{}!'.format(filenum + 1, n_files))
         new_ballots = read_and_process_ballots(path)
         if new_ballots is not None:
             ballots = ballots.append(new_ballots)
@@ -136,7 +134,7 @@ def exhaust_beyond(ballot, ind):
 
 def process_ballot(ballot):
     '''
-    Handles overvotes, undervotes, and duplicate rankings for a single candidate
+    Handles overvotes, undervotes, and duplicate rankings for a single ballot
     in accordance with Maine election law in Section 4.2.B.
 
     Inputs:
@@ -220,7 +218,7 @@ def read_and_process_ballots(filepath):
         dataframe['active_choice'] = 'first_choice'
         dataframe[dataframe.first_choice == NAN] = EXHAUSTED
     except FileNotFoundError:
-        print("No file found at", filepath + "!")
+        print("Expected file at {} not found.".format(filepath))
         return None
 
     return dataframe
@@ -320,9 +318,14 @@ def advance_round(ballots, active_candidates):
     return ballots
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Re-create Maine 2018 RCV election process.")
     usage = "python3 rcv.py path/to/data (optional random seed integer)"
-    assert (2 <= len(sys.argv) <= 3), "Expected 1 or 2 arguments, recieved {}.".format(len(sys.argv) - 1)
-    if sys.argv == 3:
-        compute_election_results(sys.argv[1], sys.argv[2])
+    parser.add_argument('fp', metavar='filepath', type=str, nargs=1,
+                        help='path to data directory')
+    parser.add_argument('--seed', dest="seed", metavar='s', type=str, nargs=1,
+                        help='optional random seed')
+    args = parser.parse_args()
+    if args.seed:
+        compute_election_results(args.fp[0], args.seed[0])
     else:
-        compute_election_results(sys.argv[1])
+        compute_election_results(args.fp[0])
