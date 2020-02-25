@@ -3,10 +3,13 @@ Maine 2018 2nd Congressional District Re-creation
 
 Ben Fogarty
 
+Last updated: 25 February 2020
+
 All references to Maine election law from:
 https://www.maine.gov/sos/cec/elec/upcoming/pdf/250c535-2018-230-complete.pdf
 '''
 
+import os.path
 import sys
 import pandas as pd
 import random
@@ -18,14 +21,14 @@ EXHAUSTED = 'exhausted'
 OVERVOTE = 'overvote'
 UNDERVOTE = 'undervote'
 SKIP = 'skip'
-DATA_FILE_LOCS = {'digital1': 'data/NOV18CVRExportFINAL1.csv',
-                  'digital2': 'data/NOV18CVRExportFINAL2.csv',
-                  'digital3': 'data/NOV18CVRExportFINAL3.csv',
-                  'uocava4': 'data/UOCAVA-FINALRepCD2.csv',
-                  'uocava5': 'data/UOCAVA-AUX-CVRRepCD2.csv',
-                  'uocava6': 'data/UOCAVA2CVRRepCD2.csv',
-                  'noscan7': 'data/AUXCVRProofedCVR95RepCD2.csv',
-                  'digital8': 'data/RepCD2-8final.csv'
+DATA_FILE_LOCS = {'digital1': 'NOV18CVRExportFINAL1.xlsx',
+                  'digital2': 'NOV18CVRExportFINAL2.xlsx',
+                  'digital3': 'NOV18CVRExportFINAL3.xlsx',
+                  'uocava4': 'UOCAVA-FINALRepCD2.xlsx',
+                  'uocava5': 'UOCAVA-AUX-CVRRepCD2.xlsx',
+                  'uocava6': 'UOCAVA2CVRRepCD2.xlsx',
+                  'noscan7': 'AUXCVRProofedCVR95RepCD2.xlsx',
+                  'digital8': 'RepCD2-8final.xlsx'
                  }
 CHOICE_FIELDS = ['first_choice', 'second_choice', 'third_choice',
                  'fourth_choice', 'fifth_choice']
@@ -37,11 +40,12 @@ NEXT_CHOICE = {'first_choice': 'second_choice',
                EXHAUSTED: EXHAUSTED}
 
 
-def compute_election_results(seed=None):
+def compute_election_results(dir, seed=None):
     '''
     Computes the results of the election
 
     Inputs:
+    dir (str): path to directory containing ballots
     seed (int): a random seed; randomization will be used in the case
         of a tie. This parameter is included to make results reproducable.
     '''
@@ -50,11 +54,12 @@ def compute_election_results(seed=None):
 
     ballots = pd.DataFrame()
     n_files = len(DATA_FILE_LOCS)
-    current_file = 1
-    for path in DATA_FILE_LOCS.values():
-        print('Loading ballots file {}/{}!'.format(current_file, n_files))
-        ballots = ballots.append(read_and_process_ballots(path))
-        current_file += 1
+    for filenum, filename in enumerate(DATA_FILE_LOCS.values()):
+        path = os.path.join(dir, filename)
+        print('Loading ballots file {}/{}!'.format(filenum + 1, n_files))
+        new_ballots = read_and_process_ballots(path)
+        if new_ballots is not None:
+            ballots = ballots.append(new_ballots)
     print('All ballots loaded!')
     print()
 
@@ -206,7 +211,7 @@ def read_and_process_ballots(filepath):
                    'DEM Golden, Jared F. ': 'DEM Golden, Jared F.'}
 
     try:
-        dataframe = pd.read_csv(filepath, index_col="Cast Vote Record",
+        dataframe = pd.read_excel(filepath, index_col="Cast Vote Record",
                                   dtype=col_types)
         dataframe.rename(col_names, axis=1, inplace=True)
         for choice in CHOICE_FIELDS:
@@ -216,6 +221,7 @@ def read_and_process_ballots(filepath):
         dataframe[dataframe.first_choice == NAN] = EXHAUSTED
     except FileNotFoundError:
         print("No file found at", filepath + "!")
+        return None
 
     return dataframe
 
@@ -314,9 +320,9 @@ def advance_round(ballots, active_candidates):
     return ballots
 
 if __name__ == "__main__":
-    usage = "python3 rcv.py (optional random seed integer)"
-    assert (len(sys.argv) <= 2), "Expected 0 or 1 arguments, recieved {}.".format(len(sys.argv) - 1)
-    if sys.argv == 2:
-        compute_election_results(sys.argv[1])
+    usage = "python3 rcv.py path/to/data (optional random seed integer)"
+    assert (2 <= len(sys.argv) <= 3), "Expected 1 or 2 arguments, recieved {}.".format(len(sys.argv) - 1)
+    if sys.argv == 3:
+        compute_election_results(sys.argv[1], sys.argv[2])
     else:
-        compute_election_results()
+        compute_election_results(sys.argv[1])
